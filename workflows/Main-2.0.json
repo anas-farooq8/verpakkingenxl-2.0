@@ -3,7 +3,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Below is the customer information extracted from Zendesk. Analyze this data.\n\n{\n  \"companyName\": \"{{ $json.customer_name }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"domain\": \"{{ $json.email.split('@').pop() }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"timeZone\": \"{{ $json.time_zone }}\",\n  \"locale\": \"{{ $json.locale }}\"\n}",
+        "text": "=Below is the customer information extracted from Zendesk. Analyze this data.\n\n{\n  \"companyName\": \"{{ $json.customer_name }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"domain\": \"{{ $json.email ? $json.email.split('@').pop() : null }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"address\": \"{{ $json.address }}\",\n  \"locale\": \"{{ $json.locale }}\"\n}",
         "hasOutputParser": true,
         "options": {
           "systemMessage": "={{ $('Aggregate Prompts').first().json.data.find(item => item.key === 'system_prompt_base_agent')?.value || \"You are a Helpful Assistant\" }}",
@@ -130,17 +130,18 @@
         "genericAuthType": "httpQueryAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"name\": \"{{ $json.customer_name }} - {{ $json.email.split('@').pop() }}\",\n  \"label_ids\": [10],\n  \"visible_to\": 3,\n  \"custom_fields\": {\n    \"1a654f5d25fbae0ae82577dfa3448024f852e366\": \"{{ $json.zendesk_id }}\",\n    \"e62dba18429c4bb3307916ec46a4793d22f970c2\": {{ $json.lead_score }},\n    \"13096dc68ea12064d2c5e0935722ff0839caff2f\": \"{{ $json.estimated_shipping_volume }}\",\n    \"5df1b60a6200ac568db991d4e1440459a92ff39b\": \"{{ $json.likely_logistics_type }}\",\n    \"a000a1a83ca6689b763f109e03c5f43eb78e71cf\": {{ $json.zendesk_id }}\n  }\n}",
+        "jsonBody": "={\n  \"name\": \"{{ $json.body.customer_name }}{{ $json.body.email ? \"-\" + $json.body.email.split('@').pop() : '' }}\",\n  \"label_ids\": [10],\n  \"visible_to\": 3,\n  \"custom_fields\": {\n    \"1a654f5d25fbae0ae82577dfa3448024f852e366\": \"{{ $json.body.zendesk_id }}\",\n    \"e62dba18429c4bb3307916ec46a4793d22f970c2\": {{ $json.body.lead_score }},\n    \"13096dc68ea12064d2c5e0935722ff0839caff2f\": \"{{ $json.body.estimated_shipping_volume }}\",\n    \"5df1b60a6200ac568db991d4e1440459a92ff39b\": \"{{ $json.body.likely_logistics_type }}\",\n    \"a000a1a83ca6689b763f109e03c5f43eb78e71cf\": {{ $json.body.zendesk_id }}\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        1648,
-        1344
+        576,
+        1328
       ],
       "id": "1a1c3ec1-9fb5-49f2-953f-6c7405316589",
       "name": "Create Organization",
+      "retryOnFail": true,
       "credentials": {
         "httpQueryAuth": {
           "id": "qtiJjJFhy3rm81yK",
@@ -156,17 +157,18 @@
         "genericAuthType": "httpQueryAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"name\": \"{{ $('Loop Over Items').item.json.customer_name }}\",\n  \"label_ids\": [14],\n  \"org_id\": {{ $json.data.id }},\n  \"emails\": [\n    {\n      \"value\": \"{{ $('Loop Over Items').item.json.email }}\",\n      \"primary\": true,\n      \"label\": \"Work\"\n    }\n  ],\n  \"phones\": [\n    {\n      \"value\": \"{{ $('Loop Over Items').item.json.phone }}\",\n      \"primary\": true,\n      \"label\": \"Phone\"\n    }\n  ],\n  \"visible_to\": 3\n}",
+        "jsonBody": "={\n  \"name\": \"{{ $('Webhook').item.json.body.customer_name }}\",\n  \"label_ids\": [14],\n  \"org_id\": {{ $json.data.id }},\n  \"emails\": [\n    {\n      \"value\": \"{{ $('Webhook').item.json.body.email }}\",\n      \"primary\": true,\n      \"label\": \"Work\"\n    }\n  ],\n  \"phones\": [\n    {\n      \"value\": \"{{ $('Webhook').item.json.body.phone }}\",\n      \"primary\": true,\n      \"label\": \"Phone\"\n    }\n  ],\n  \"visible_to\": 3\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        1856,
-        1344
+        784,
+        1328
       ],
       "id": "5850eff1-3ac8-46d3-a2fe-bf05f7d5a801",
       "name": "Create Person",
+      "retryOnFail": true,
       "credentials": {
         "httpQueryAuth": {
           "id": "qtiJjJFhy3rm81yK",
@@ -182,17 +184,18 @@
         "genericAuthType": "httpQueryAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"title\": \"New Business Lead – {{ $('Loop Over Items').item.json.customer_name }}\",\n  \"owner_id\": {{ $json.data.owner_id }},\n  \"person_id\": {{ $json.data.id }},\n  \"org_id\": {{ $json.data.org_id }},\n  \"pipeline_id\": 1,\n  \"stage_id\": 1,\n  \"value\": 0,\n  \"currency\": \"EUR\",\n  \"visible_to\": 3,\n  \"channel\": 37,\n  \"channel_id\": \"{{ $('Loop Over Items').item.json.zendesk_id }}\"\n}",
+        "jsonBody": "={\n  \"title\": \"New Business Lead – {{ $('Webhook').item.json.body.customer_name }}\",\n  \"owner_id\": {{ $json.data.owner_id }},\n  \"person_id\": {{ $json.data.id }},\n  \"org_id\": {{ $json.data.org_id }},\n  \"pipeline_id\": 1,\n  \"stage_id\": 1,\n  \"value\": 0,\n  \"currency\": \"EUR\",\n  \"visible_to\": 3,\n  \"channel\": 37,\n  \"channel_id\": \"{{ $('Webhook').item.json.body.zendesk_id }}\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        2064,
-        1344
+        992,
+        1328
       ],
       "id": "6e7e5856-23a7-4697-a66a-d9d218c4f99a",
       "name": "Create Deal",
+      "retryOnFail": true,
       "credentials": {
         "httpQueryAuth": {
           "id": "qtiJjJFhy3rm81yK",
@@ -208,17 +211,18 @@
         "genericAuthType": "httpQueryAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"content\": {{ JSON.stringify($('Loop Over Items').item.json.note) }},\n  \"deal_id\": {{ $json.data.id }},\n  \"pinned_to_deal_flag\": 1\n}",
+        "jsonBody": "={\n  \"content\": {{ JSON.stringify($('Webhook').item.json.body.note) }},\n  \"deal_id\": {{ $json.data.id }},\n  \"pinned_to_deal_flag\": 1\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        2272,
-        1344
+        1200,
+        1328
       ],
       "id": "1ecf6a1d-6553-494b-99c1-a5a99a4b85f9",
       "name": "Create Note",
+      "retryOnFail": true,
       "credentials": {
         "httpQueryAuth": {
           "id": "qtiJjJFhy3rm81yK",
@@ -242,354 +246,6 @@
     },
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "triggerAtHour": 20
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        384,
-        1328
-      ],
-      "id": "57301a1f-61b6-4c95-8136-982cf31700e5",
-      "name": "Schedule Trigger For Pushing Data into PipeDrive"
-    },
-    {
-      "parameters": {
-        "operation": "get",
-        "dataTableId": {
-          "__rl": true,
-          "value": "wdNYwr5ue45v2HP4",
-          "mode": "list",
-          "cachedResultName": "verpakkingenxl-2.0-zendesk",
-          "cachedResultUrl": "/projects/9rlsqBZGPNj4ARdI/datatables/wdNYwr5ue45v2HP4"
-        },
-        "matchType": "allConditions",
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "is_searched",
-              "condition": "isTrue"
-            },
-            {
-              "keyName": "status",
-              "keyValue": "queued"
-            }
-          ]
-        },
-        "returnAll": true
-      },
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1,
-      "position": [
-        800,
-        1328
-      ],
-      "id": "fc245bdb-c550-4d8b-acf2-97c2bf1f43e2",
-      "name": "Get All Data"
-    },
-    {
-      "parameters": {
-        "sortFieldsUi": {
-          "sortField": [
-            {
-              "fieldName": "lead_score",
-              "order": "descending"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.sort",
-      "typeVersion": 1,
-      "position": [
-        1008,
-        1328
-      ],
-      "id": "4c37aaec-eae8-472b-b65d-de2da0305043",
-      "name": "Sort"
-    },
-    {
-      "parameters": {
-        "maxItems": "={{ $('Get Push Limit').item.json.value }}"
-      },
-      "type": "n8n-nodes-base.limit",
-      "typeVersion": 1,
-      "position": [
-        1200,
-        1328
-      ],
-      "id": "c8ae7bf8-61e6-4a3c-b0c4-2e0d828b0c5d",
-      "name": "Limit"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [
-        1408,
-        1328
-      ],
-      "id": "237c61a7-7e3b-4b97-ae73-362b05f28bd6",
-      "name": "Loop Over Items"
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "dataTableId": {
-          "__rl": true,
-          "value": "wdNYwr5ue45v2HP4",
-          "mode": "list",
-          "cachedResultName": "verpakkingenxl-2.0-zendesk",
-          "cachedResultUrl": "/projects/9rlsqBZGPNj4ARdI/datatables/wdNYwr5ue45v2HP4"
-        },
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "zendesk_id",
-              "keyValue": "={{ $('Loop Over Items').item.json.zendesk_id }}"
-            }
-          ]
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "org_id": "={{ $json.data.org_id }}",
-            "deal_id": "={{ $json.data.deal_id }}",
-            "person_id": "={{ $json.data.person_id }}",
-            "note_id": "={{ $json.data.id }}",
-            "status": "processed"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "zendesk_id",
-              "displayName": "zendesk_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "customer_name",
-              "displayName": "customer_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "email",
-              "displayName": "email",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "phone",
-              "displayName": "phone",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "time_zone",
-              "displayName": "time_zone",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "locale",
-              "displayName": "locale",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "status",
-              "displayName": "status",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false
-            },
-            {
-              "id": "decision",
-              "displayName": "decision",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "reason",
-              "displayName": "reason",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "estimated_shipping_volume",
-              "displayName": "estimated_shipping_volume",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "likely_logistics_type",
-              "displayName": "likely_logistics_type",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "compact_instruction",
-              "displayName": "compact_instruction",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "note",
-              "displayName": "note",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "lead_score",
-              "displayName": "lead_score",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "number",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "org_id",
-              "displayName": "org_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false
-            },
-            {
-              "id": "person_id",
-              "displayName": "person_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false
-            },
-            {
-              "id": "deal_id",
-              "displayName": "deal_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false
-            },
-            {
-              "id": "note_id",
-              "displayName": "note_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false
-            },
-            {
-              "id": "is_searched",
-              "displayName": "is_searched",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "boolean",
-              "readOnly": false,
-              "removed": true
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1,
-      "position": [
-        2464,
-        1344
-      ],
-      "id": "2e342ebe-de23-4cac-b268-2ed0daa50a4f",
-      "name": "Update row(s)"
-    },
-    {
-      "parameters": {
-        "amount": 1
-      },
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        2672,
-        1344
-      ],
-      "id": "1bb38a79-641d-4cc6-bc9c-9091ef2a3900",
-      "name": "Wait",
-      "webhookId": "a8cc2e32-2789-413b-b519-9865e5d0a41c"
-    },
-    {
-      "parameters": {
         "content": "## Push Leads to Pipedrive",
         "height": 80,
         "width": 304,
@@ -597,8 +253,8 @@
       },
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        384,
-        1200
+        432,
+        1184
       ],
       "typeVersion": 1,
       "id": "da4fef19-177a-41c6-957a-2b14759d9d69",
@@ -670,22 +326,6 @@
     },
     {
       "parameters": {
-        "content": "## Daily Lead Push System (9 PM UTC + Webhook)\n\n**Triggers:**\n- Schedule: Daily at 21:00\n- Webhook: POST `/push-to-pipedrive`\n\n**Flow:**\n```\nGet Push Limit → Get Qualified Leads → Sort by Score → Limit → Loop → Create in Pipedrive\n```\n\n**Filters:**\n- `is_searched = true`\n- `status = queued`\n- Lead score > 5\n\n**Creates 4 Records per Lead:**\n1. Organization (with custom fields)\n2. Person (linked to org)\n3. Deal (linked to person & org)\n4. Note (pinned to deal)\n\n**Rate Limiting:**\n- Batch size from KVS `pipedrive_push_limit` (default 50)\n- 1 second wait between leads\n\n**Webhook Response:**\nReturns org_id, person_id, deal_id, note_id\n",
-        "height": 668,
-        "width": 672,
-        "color": 2
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        272,
-        1504
-      ],
-      "typeVersion": 1,
-      "id": "da8c344a-5779-48e7-b61d-0d181a0ed1e5",
-      "name": "Batch Processing Schedule"
-    },
-    {
-      "parameters": {
         "content": "## 🎯 Lead Scoring Logic\n\n**If Score > 5:**\n→ Added to queue\n→ Creates complete lead record\n→ Processed in daily batch\n\n**Decision Criteria:**\n- Business size & potential\n- Shipping volume estimation\n- Industry relevance\n- Company legitimacy\n- Market presence",
         "height": 324,
         "width": 360,
@@ -699,37 +339,6 @@
       "typeVersion": 1,
       "id": "51df5005-f02b-44af-b76e-4d15422f7cf6",
       "name": "Lead Scoring Logic"
-    },
-    {
-      "parameters": {
-        "content": "## 💼 Pipedrive Record Creation\n\n**Creates 4 Records:**\n\n1. **Organization**\n   - Company details\n   - Custom fields: Lightspeed ID, order metrics\n   - Lead score & shipping estimates\n   - CoC & VAT numbers\n\n2. **Person (Contact)**\n   - Linked to organization\n   - Email & phone numbers\n   - Label: B2B Contact\n\n3. **Deal**\n   - Title: \"New Business Lead – [Company]\"\n   - Pipeline Stage 1\n   - Channel: Lightspeed\n\n4. **Note**\n   - AI qualification details\n   - Order history summary\n   - Pinned to deal",
-        "height": 564,
-        "width": 368
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        1664,
-        1552
-      ],
-      "typeVersion": 1,
-      "id": "be1cb7e0-3d19-4cfa-a44b-32b69e22c010",
-      "name": "Pipedrive Creation"
-    },
-    {
-      "parameters": {
-        "content": "## 📝 Configuration Guide\n\n**Step 1: Pipedrive Custom Fields**\nCreate organization custom fields and note IDs:\n- 1a654f5d... (Lightspeed ID)\n- ae01b186... (Total Orders)\n- 0a516666... (Paid Orders)  \n- a785a890... (Total Value)\n- e62dba18... (Lead Score)\n- 13096dc6... (Shipping Volume)\n- 5df1b60a... (Logistics Type)\n- 7e89f763... (CoC Number)\n- c1b3f8b6... (VAT Number)\n\n**Step 2: Update Node Configuration**\nReplace field IDs in:\n- Create Organization\n- Update Organization\n\n**Step 3: Pipeline Settings**\nSet correct `pipeline_id` and `stage_id` in Deal nodes",
-        "height": 484,
-        "width": 400,
-        "color": 5
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        2096,
-        1568
-      ],
-      "typeVersion": 1,
-      "id": "c32ac7d3-c1fb-463a-acef-919c856188a2",
-      "name": "Configuration Guide"
     },
     {
       "parameters": {
@@ -751,7 +360,7 @@
       "parameters": {
         "content": "",
         "height": 2224,
-        "width": 2720,
+        "width": 2624,
         "color": 4
       },
       "type": "n8n-nodes-base.stickyNote",
@@ -779,35 +388,6 @@
       ],
       "id": "f1ebb2a1-2bfa-4ca1-91ac-d9f7fa06e649",
       "name": "Schedule Trigger"
-    },
-    {
-      "parameters": {
-        "operation": "get",
-        "dataTableId": {
-          "__rl": true,
-          "value": "wdNYwr5ue45v2HP4",
-          "mode": "list",
-          "cachedResultName": "verpakkingenxl-2.0-zendesk",
-          "cachedResultUrl": "/projects/9rlsqBZGPNj4ARdI/datatables/wdNYwr5ue45v2HP4"
-        },
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "is_searched",
-              "condition": "isFalse"
-            }
-          ]
-        },
-        "limit": "={{ $json[\"data\"].find(item => item.key === 'daily_processing_limit')?.value || 50 }}"
-      },
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1,
-      "position": [
-        1008,
-        304
-      ],
-      "id": "e22c83cd-f781-46c7-8e3f-b93de56076aa",
-      "name": "Get Raw Data"
     },
     {
       "parameters": {
@@ -845,6 +425,153 @@
     },
     {
       "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "adefb025-2a16-4b18-bf4b-dacc972b77e1",
+              "name": "done",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2272,
+        368
+      ],
+      "id": "e46c9234-0f28-4cb8-8645-3c1ba1645eb7",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "push-to-pipedrive",
+        "responseMode": "responseNode",
+        "options": {
+          "ignoreBots": true
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        1328
+      ],
+      "id": "55ddbf92-1e37-4619-8556-96ee895bd830",
+      "name": "Webhook",
+      "webhookId": "937f114a-0245-4ce6-bcf5-0e25e9b37b4b"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"org_id\": {{ $json.org_id }},\n  \"person_id\": {{ $json.person_id }},\n  \"deal_id\": {{ $json.deal_id }},\n  \"note_id\": {{ $json.note_id }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1584,
+        1328
+      ],
+      "id": "430ff2fc-358c-458f-bb53-0f6cf3117aed",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "content": "## AI-Powered Lead Qualification System\n\n**Purpose:** Automatically research Zendesk leads using AI and push qualified ones to Pipedrive.\n\n**Two Modes:**\n1. **Research Mode** - Daily processing of new leads with AI qualification\n2. **Push Mode** - Daily at 8 PM UTC or via webhook to create Pipedrive records\n\n**Data Tables:**\n- `verpakkingenxl-2.0-zendesk` - Lead database\n- `verpakkingenxl-2.0-KVS` - Configuration store\n\n**AI Processing:**\n- Google Gemini with web search\n- Scores leads 0-10\n- Only leads with score > 5 get pushed to Pipedrive\n\n**Pipedrive Creation:**\nOrganization → Person → Deal → Note (all linked together)",
+        "height": 556,
+        "width": 400,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -272,
+        384
+      ],
+      "typeVersion": 1,
+      "id": "cfd24925-f7cd-4304-8b87-264326848dc8",
+      "name": "Setup - Credentials1"
+    },
+    {
+      "parameters": {
+        "content": "## Lead Qualification Process\n\n**Runs Before Loop:**\n```\nSchedule → Get KVS → Aggregate Prompts → Get Raw Data → Loop\n```\n\n**Get KVS:** Fetches AI prompts and processing limit from config table\n\n**Aggregate Prompts:** Makes prompts accessible to AI Agent\n\n**Get Raw Data:** Fetches unprocessed leads (`is_searched = false`)\n\n**Configuration:** Edit prompts in KVS table without changing workflow",
+        "height": 348,
+        "width": 592,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        288,
+        448
+      ],
+      "typeVersion": 1,
+      "id": "6e29ecb4-c05e-4b53-ac6c-822c4bc29078",
+      "name": "Webhook Entry Point"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "wdNYwr5ue45v2HP4",
+          "mode": "list",
+          "cachedResultName": "verpakkingenxl-2.0-zendesk",
+          "cachedResultUrl": "/projects/9rlsqBZGPNj4ARdI/datatables/wdNYwr5ue45v2HP4"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_searched",
+              "condition": "isFalse"
+            }
+          ]
+        },
+        "limit": "={{ $json[\"data\"].find(item => item.key === 'daily_processing_limit')?.value || 50 }}"
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        304
+      ],
+      "id": "e22c83cd-f781-46c7-8e3f-b93de56076aa",
+      "name": "Get Raw Customer Data"
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "wdNYwr5ue45v2HP4",
+          "mode": "list",
+          "cachedResultName": "verpakkingenxl-2.0-zendesk",
+          "cachedResultUrl": "/projects/9rlsqBZGPNj4ARdI/datatables/wdNYwr5ue45v2HP4"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "zendesk_id",
+              "keyValue": "={{ $('Loop Over Raw Items').item.json.zendesk_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2064,
+        464
+      ],
+      "id": "dd9f3fb1-e43f-4abb-b746-85224a2165fe",
+      "name": "Delete Custom Data"
+    },
+    {
+      "parameters": {
         "operation": "update",
         "dataTableId": {
           "__rl": true,
@@ -870,7 +597,7 @@
             "reason": "={{ $json.output.reason }}",
             "likely_logistics_type": "={{ $json.output.likely_logistics_type.toLowerCase() }}",
             "compact_instruction": "={{ $json.output.compact_instruction }}",
-            "note": "=<p><strong>From: Zendesk</strong></p>\n<p><strong>AI Qualification Result:</strong></p>\n<ul>\n  <li><strong>Decision:</strong> {{ $('AI Agent').item.json.output.decision.toLowerCase() }}</li>\n  <li><strong>Lead Score:</strong> {{ $('AI Agent').item.json.output.score }}</li>\n  <li><strong>Reason:</strong> {{ $('AI Agent').item.json.output.reason }}</li>\n  <li><strong>Estimated Shipping Volume:</strong> {{ $('AI Agent').item.json.output.estimated_shipping_volume.toLowerCase() }}</li>\n  <li><strong>Likely Logistics Type:</strong> {{ $('AI Agent').item.json.output.likely_logistics_type.toLowerCase() }}</li>\n  <li><strong>Summary:</strong> {{ $('AI Agent').item.json.output.compact_instruction }}</li>\n</ul>",
+            "note": "=<p><strong>From: {{ $('Loop Over Raw Items').item.json.source.charAt(0).toUpperCase() + $('Loop Over Raw Items').item.json.source.slice(1) }}</strong></p>\n<p><strong>AI Qualification Result:</strong></p>\n<ul>\n  <li><strong>Decision:</strong> {{ $('AI Agent').item.json.output.decision.toLowerCase() }}</li>\n  <li><strong>Lead Score:</strong> {{ $('AI Agent').item.json.output.score }}</li>\n  <li><strong>Reason:</strong> {{ $('AI Agent').item.json.output.reason }}</li>\n  <li><strong>Estimated Shipping Volume:</strong> {{ $('AI Agent').item.json.output.estimated_shipping_volume.toLowerCase() }}</li>\n  <li><strong>Likely Logistics Type:</strong> {{ $('AI Agent').item.json.output.likely_logistics_type.toLowerCase() }}</li>\n  <li><strong>Summary:</strong> {{ $('AI Agent').item.json.output.compact_instruction }}</li>\n</ul>",
             "is_searched": true
           },
           "matchingColumns": [],
@@ -916,8 +643,8 @@
               "removed": true
             },
             {
-              "id": "time_zone",
-              "displayName": "time_zone",
+              "id": "address",
+              "displayName": "address",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -928,6 +655,16 @@
             {
               "id": "locale",
               "displayName": "locale",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -1078,11 +815,11 @@
         304
       ],
       "id": "bcf0aae9-4a4e-4128-b339-24504e71e427",
-      "name": "Update All Data"
+      "name": "Update AI Data"
     },
     {
       "parameters": {
-        "operation": "deleteRows",
+        "operation": "update",
         "dataTableId": {
           "__rl": true,
           "value": "wdNYwr5ue45v2HP4",
@@ -1094,337 +831,282 @@
           "conditions": [
             {
               "keyName": "zendesk_id",
-              "keyValue": "={{ $('Loop Over Raw Items').item.json.zendesk_id }}"
+              "keyValue": "={{ $('Webhook').item.json.body.zendesk_id }}"
             }
           ]
         },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1,
-      "position": [
-        2064,
-        464
-      ],
-      "id": "dd9f3fb1-e43f-4abb-b746-85224a2165fe",
-      "name": "Delete Zendesk row"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "adefb025-2a16-4b18-bf4b-dacc972b77e1",
-              "name": "done",
-              "value": true,
-              "type": "boolean"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        2272,
-        368
-      ],
-      "id": "e46c9234-0f28-4cb8-8645-3c1ba1645eb7",
-      "name": "Edit Fields"
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "push-to-pipedrive",
-        "responseMode": "responseNode",
-        "options": {
-          "ignoreBots": true
-        }
-      },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        1024,
-        1552
-      ],
-      "id": "55ddbf92-1e37-4619-8556-96ee895bd830",
-      "name": "Webhook",
-      "webhookId": "937f114a-0245-4ce6-bcf5-0e25e9b37b4b"
-    },
-    {
-      "parameters": {
-        "operation": "get",
-        "dataTableId": {
-          "__rl": true,
-          "value": "YKWzyvGF8jUIxKwI",
-          "mode": "list",
-          "cachedResultName": "verpakkingenxl-2.0-KVS",
-          "cachedResultUrl": "/projects/9rlsqBZGPNj4ARdI/datatables/YKWzyvGF8jUIxKwI"
-        },
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "key",
-              "keyValue": "pipedrive_push_limit"
-            }
-          ]
-        },
-        "limit": 1
-      },
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1,
-      "position": [
-        592,
-        1328
-      ],
-      "id": "c3a951f4-2508-4e37-bf50-56cd088cbfd1",
-      "name": "Get Push Limit"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "org_id": "={{ $json.data.org_id }}",
+            "deal_id": "={{ $json.data.deal_id }}",
+            "person_id": "={{ $json.data.person_id }}",
+            "note_id": "={{ $json.data.id }}",
+            "status": "processed"
           },
-          "conditions": [
+          "matchingColumns": [],
+          "schema": [
             {
-              "id": "6195a280-31ab-442e-a9c6-92f6faf65461",
-              "leftValue": "={{ $('Webhook').item.json.body.call_type }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "exists",
-                "singleValue": true
-              }
+              "id": "zendesk_id",
+              "displayName": "zendesk_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
             },
             {
-              "id": "b3750218-062c-46e4-a01e-35aab2207ebc",
-              "leftValue": "={{ $('Webhook').item.json.body.call_type }}",
-              "rightValue": "webhook",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
-              }
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "locale",
+              "displayName": "locale",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "decision",
+              "displayName": "decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "estimated_shipping_volume",
+              "displayName": "estimated_shipping_volume",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "likely_logistics_type",
+              "displayName": "likely_logistics_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "compact_instruction",
+              "displayName": "compact_instruction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "lead_score",
+              "displayName": "lead_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "org_id",
+              "displayName": "org_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "person_id",
+              "displayName": "person_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "deal_id",
+              "displayName": "deal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "note_id",
+              "displayName": "note_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "is_searched",
+              "displayName": "is_searched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
             }
           ],
-          "combinator": "and"
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
         },
         "options": {}
       },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
       "position": [
-        1648,
-        1184
+        1392,
+        1328
       ],
-      "id": "3c0e7339-41b4-45eb-b111-5b1c7c910f6a",
-      "name": "If"
+      "id": "2e342ebe-de23-4cac-b268-2ed0daa50a4f",
+      "name": "Update Pipedrive Data"
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\n  \"org_id\": {{ $json.org_id }},\n  \"person_id\": {{ $json.person_id }},\n  \"deal_id\": {{ $json.deal_id }},\n  \"note_id\": {{ $json.note_id }}\n}",
-        "options": {}
+        "content": "## 💼 Pipedrive Record Creation\n\n**Creates 4 Records:**\n\n1. **Organization**\n   - Name format: customer_name-domain\n   - Custom fields:\n     - Zendesk ID\n     - Lead Score\n     - Estimated Shipping Volume\n     - Likely Logistics Type\n   - Label: B2B\n   - Visibility: All\n\n2. **Person (Contact)**\n   - Linked to organization\n   - Email & phone numbers\n   - Label: B2B Contact\n   - Visibility: All\n\n3. **Deal**\n   - Title: \"New Business Lead – [Company]\"\n   - Pipeline Stage 1\n   - Channel: Zendesk\n   - Owner inherited from person\n\n4. **Note**\n   - AI qualification details\n   - Pinned to deal",
+        "height": 676,
+        "width": 368
       },
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
+      "type": "n8n-nodes-base.stickyNote",
       "position": [
-        1904,
-        1168
+        1088,
+        1520
       ],
-      "id": "430ff2fc-358c-458f-bb53-0f6cf3117aed",
-      "name": "Respond to Webhook"
+      "typeVersion": 1,
+      "id": "d6f7fd28-8405-4525-9a80-f8faedd739e9",
+      "name": "Pipedrive Creation"
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "b47188b9-1807-441f-a47d-78ef70e3a871",
-              "name": "zendesk_id",
-              "value": "={{ $json.body.zendesk_id }}",
-              "type": "string"
-            },
-            {
-              "id": "070b120a-c80b-4bdf-a651-dbdaddf2e2fc",
-              "name": "customer_name",
-              "value": "={{ $json.body.customer_name }}",
-              "type": "string"
-            },
-            {
-              "id": "28825d1c-83db-4c6a-817f-52ca2a727537",
-              "name": "email",
-              "value": "={{ $json.body.email }}",
-              "type": "string"
-            },
-            {
-              "id": "39e15920-5583-41b3-8a5c-950185b7daa6",
-              "name": "phone",
-              "value": "={{ $json.body.phone }}",
-              "type": "string"
-            },
-            {
-              "id": "0a8f3434-a91d-4a61-b333-6a35e1858bca",
-              "name": "time_zone",
-              "value": "={{ $json.body.time_zone }}",
-              "type": "string"
-            },
-            {
-              "id": "ecc31f37-2fa6-43d8-ad26-a7a587ca50b0",
-              "name": "locale",
-              "value": "={{ $json.body.locale }}",
-              "type": "string"
-            },
-            {
-              "id": "1f65ac40-8513-4815-b936-fddc88fd0a7d",
-              "name": "status",
-              "value": "={{ $json.body.status }}",
-              "type": "string"
-            },
-            {
-              "id": "9dfdcabb-275a-4417-914c-13a07f70932c",
-              "name": "decision",
-              "value": "={{ $json.body.decision }}",
-              "type": "string"
-            },
-            {
-              "id": "462c9c39-80b6-4169-8549-9e57a9769824",
-              "name": "reason",
-              "value": "={{ $json.body.reason }}",
-              "type": "string"
-            },
-            {
-              "id": "165890b9-550b-41e9-86e8-831e11f52b29",
-              "name": "estimated_shipping_volume",
-              "value": "={{ $json.body.estimated_shipping_volume }}",
-              "type": "string"
-            },
-            {
-              "id": "5ef09bd2-657a-441b-b0de-2e569ab8745c",
-              "name": "likely_logistics_type",
-              "value": "={{ $json.body.likely_logistics_type }}",
-              "type": "string"
-            },
-            {
-              "id": "0b8111c3-4e71-4f05-853e-2aa1cf46ab5c",
-              "name": "compact_instruction",
-              "value": "={{ $json.body.compact_instruction }}",
-              "type": "string"
-            },
-            {
-              "id": "7a8dd8c9-b3d2-4100-9c1c-3943f3256446",
-              "name": "note",
-              "value": "={{ $json.body.note }}",
-              "type": "string"
-            },
-            {
-              "id": "af317cc5-de12-40dc-8427-4a65035de8f7",
-              "name": "lead_score",
-              "value": "={{ $json.body.lead_score }}",
-              "type": "number"
-            },
-            {
-              "id": "b593dd5c-8f7d-42e8-830f-4196355bce73",
-              "name": "org_id",
-              "value": "={{ $json.body.org_id }}",
-              "type": "string"
-            },
-            {
-              "id": "51836d42-dec2-488b-af3e-b0695b40d3eb",
-              "name": "person_id",
-              "value": "={{ $json.body.person_id }}",
-              "type": "string"
-            },
-            {
-              "id": "a76a29e7-c349-4063-b22b-174b52d09b8d",
-              "name": "deal_id",
-              "value": "={{ $json.body.deal_id }}",
-              "type": "string"
-            },
-            {
-              "id": "a517124f-ab75-40e3-beab-15a6099e91da",
-              "name": "note_id",
-              "value": "={{ $json.body.note_id }}",
-              "type": "string"
-            },
-            {
-              "id": "b30dde60-a6af-4599-a332-22ab4cd09577",
-              "name": "is_searched",
-              "value": "={{ $json.body.is_searched }}",
-              "type": "boolean"
-            },
-            {
-              "id": "f4048fff-e2dd-46ae-b288-3e1084db652b",
-              "name": "id",
-              "value": "={{ $json.body.id }}",
-              "type": "number"
-            },
-            {
-              "id": "ec4b17bb-d59e-4fe3-a0a6-05136bc6dc4d",
-              "name": "createdAt",
-              "value": "={{ $json.body.createdAt }}",
-              "type": "string"
-            },
-            {
-              "id": "b1f630c6-98c7-4fd0-9cea-17a2e3bfde96",
-              "name": "updatedAt",
-              "value": "={{ $json.body.updatedAt }}",
-              "type": "string"
-            },
-            {
-              "id": "2c303ca1-0dd8-4fad-a3d3-4f098add5666",
-              "name": "call_type",
-              "value": "={{ $json.body.call_type }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1232,
-        1552
-      ],
-      "id": "33df94ad-f9ca-42fa-8318-68000a2afc6f",
-      "name": "Set Data"
-    },
-    {
-      "parameters": {
-        "content": "## AI-Powered Lead Qualification System\n\n**Purpose:** Automatically research Zendesk leads using AI and push qualified ones to Pipedrive.\n\n**Two Modes:**\n1. **Research Mode** - Daily processing of new leads with AI qualification\n2. **Push Mode** - Daily at 8 PM UTC or via webhook to create Pipedrive records\n\n**Data Tables:**\n- `verpakkingenxl-2.0-zendesk` - Lead database\n- `verpakkingenxl-2.0-KVS` - Configuration store\n\n**AI Processing:**\n- Google Gemini with web search\n- Scores leads 0-10\n- Only leads with score > 5 get pushed to Pipedrive\n\n**Pipedrive Creation:**\nOrganization → Person → Deal → Note (all linked together)",
-        "height": 556,
+        "content": "## 📝 Configuration Guide\n\n**Step 1: Pipedrive Custom Fields**\nCreate organization custom fields with these IDs:\n- 1a654f5d... (Zendesk ID)\n- e62dba18... (Lead Score)\n- 13096dc6... (Estimated Shipping Volume)\n- 5df1b60a... (Likely Logistics Type)\n- a000a1a8... (Zendesk ID duplicate)\n\n**Step 2: Update Node Configuration**\nReplace field IDs in:\n- Create Organization node\n\n**Step 3: Pipeline Settings**\n- Pipeline ID: 1\n- Stage ID: 1\n- Channel: 37 (n8n)\n- Visibility: 3 (All)\n\n**Step 4: Labels**\n- Organization Label: 10 (Customer)\n- Person Label: 14 (Customer)",
+        "height": 516,
         "width": 400,
-        "color": 4
+        "color": 5
       },
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        -272,
-        384
+        1504,
+        1520
       ],
       "typeVersion": 1,
-      "id": "cfd24925-f7cd-4304-8b87-264326848dc8",
-      "name": "Setup - Credentials1"
+      "id": "a80005b4-a0ed-482b-9e2e-85a44d1f9b81",
+      "name": "Configuration Guide"
     },
     {
       "parameters": {
-        "content": "## Lead Qualification Process\n\n**Runs Before Loop:**\n```\nSchedule → Get KVS → Aggregate Prompts → Get Raw Data → Loop\n```\n\n**Get KVS:** Fetches AI prompts and processing limit from config table\n\n**Aggregate Prompts:** Makes prompts accessible to AI Agent\n\n**Get Raw Data:** Fetches unprocessed leads (`is_searched = false`)\n\n**Configuration:** Edit prompts in KVS table without changing workflow",
-        "height": 348,
-        "width": 592,
-        "color": 6
+        "content": "## Push Lead to Pipedrive Workflow\n\n**Webhook:** POST `/push-to-pipedrive`\n\n**Flow:**\n```\nWebhook → Create Org → Create Person → Create Deal → Create Note → Update DB → Respond\n```\n\n**Input Required:**\n- zendesk_id\n- customer_name\n- email\n- phone\n- lead_score\n- estimated_shipping_volume\n- likely_logistics_type\n- note (AI analysis)\n\n**Process:**\n1. Creates Organization with custom fields\n2. Creates Person linked to org\n3. Creates Deal in Pipeline Stage 1\n4. Adds Note with AI analysis\n5. Updates database status to 'processed'\n6. Returns: org_id, person_id, deal_id, note_id\n\n**Database Update:**\nMarks lead as 'processed' and stores Pipedrive IDs",
+        "height": 668,
+        "width": 672,
+        "color": 2
       },
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        288,
-        448
+        352,
+        1520
       ],
       "typeVersion": 1,
-      "id": "6e29ecb4-c05e-4b53-ac6c-822c4bc29078",
-      "name": "Webhook Entry Point"
+      "id": "d6a22256-f37a-403e-a77a-553b6ff64826",
+      "name": "Batch Processing Schedule"
     }
   ],
   "connections": {
@@ -1476,14 +1158,14 @@
       "main": [
         [
           {
-            "node": "Update All Data",
+            "node": "Update AI Data",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Delete Zendesk row",
+            "node": "Delete Custom Data",
             "type": "main",
             "index": 0
           }
@@ -1527,7 +1209,7 @@
       "main": [
         [
           {
-            "node": "Update row(s)",
+            "node": "Update Pipedrive Data",
             "type": "main",
             "index": 0
           }
@@ -1538,85 +1220,7 @@
       "main": [
         [
           {
-            "node": "Get Raw Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Schedule Trigger For Pushing Data into PipeDrive": {
-      "main": [
-        []
-      ]
-    },
-    "Get All Data": {
-      "main": [
-        [
-          {
-            "node": "Sort",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Sort": {
-      "main": [
-        [
-          {
-            "node": "Limit",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Limit": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Loop Over Items": {
-      "main": [
-        [
-          {
-            "node": "If",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Create Organization",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Update row(s)": {
-      "main": [
-        [
-          {
-            "node": "Wait",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
+            "node": "Get Raw Customer Data",
             "type": "main",
             "index": 0
           }
@@ -1626,17 +1230,6 @@
     "Schedule Trigger": {
       "main": [
         []
-      ]
-    },
-    "Get Raw Data": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Raw Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
       ]
     },
     "Get KVS": {
@@ -1662,28 +1255,6 @@
         ]
       ]
     },
-    "Update All Data": {
-      "main": [
-        [
-          {
-            "node": "Edit Fields",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Delete Zendesk row": {
-      "main": [
-        [
-          {
-            "node": "Edit Fields",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Edit Fields": {
       "main": [
         [
@@ -1699,25 +1270,47 @@
       "main": [
         [
           {
-            "node": "Set Data",
+            "node": "Create Organization",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Push Limit": {
+    "Get Raw Customer Data": {
       "main": [
         [
           {
-            "node": "Get All Data",
+            "node": "Loop Over Raw Items",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If": {
+    "Delete Custom Data": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update AI Data": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Pipedrive Data": {
       "main": [
         [
           {
@@ -1727,20 +1320,22 @@
           }
         ]
       ]
-    },
-    "Set Data": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
     }
   },
-  "pinData": {},
+  "pinData": {
+    "AI Agent": [
+      {
+        "output": {
+          "decision": "YES",
+          "reason": "Directscherm is a wholesaler of mobile phone parts and accessories, primarily serving business clients and repair shops. They sell, ship, and warehouse physical goods, indicating an active logistics flow. This aligns well with VerpakkingenXL’s target profile of businesses with active logistics flows.",
+          "estimated_shipping_volume": "medium",
+          "likely_logistics_type": "both",
+          "score": 9,
+          "compact_instruction": "Wholesaler of mobile phone parts with active shipping and warehousing operations."
+        }
+      }
+    ]
+  },
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "76e0ac33b50e0db0072da78a41e059e49f1a758458c2d74dcf85414a2008ed31"

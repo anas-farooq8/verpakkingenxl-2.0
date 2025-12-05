@@ -2120,16 +2120,10 @@
             button.textContent = 'Pushing...';
 
             try {
-                // Prepare payload with call_type
-                const payload = {
-                    ...item,
-                    call_type: 'webhook'
-                };
-
                 const response = await fetch(PUSH_WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(item)
                 });
 
                 if (!response.ok) {
