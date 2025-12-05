@@ -226,9 +226,10 @@
         }
 
         .filter-item.reset-actions {
-            flex-direction: row;
+            display: flex;
             justify-content: flex-end;
             align-items: flex-end;
+            grid-column: -1;
         }
 
         @media (min-width: 1200px) {
@@ -845,6 +846,14 @@
                                 </select>
                             </div>
                             <div class="filter-item">
+                                <label for="dashboardSource">Source</label>
+                                <select id="dashboardSource">
+                                    <option value="all">All</option>
+                                    <option value="zendesk">Zendesk</option>
+                                    <option value="erp">ERP</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
                                 <label for="dashboardShippingVolume">Estimated Shipping Volume</label>
                                 <select id="dashboardShippingVolume">
                                     <option value="all">All</option>
@@ -901,6 +910,7 @@
                                         <th>Shipping Vol.</th>
                                         <th>Logistics</th>
                                         <th>Lead Score</th>
+                                        <th>Source</th>
                                         <th>Status</th>
                                         <th>Created</th>
                                         <th id="orgIdHeader" style="display: none;">Org ID</th>
@@ -911,7 +921,7 @@
                                 </thead>
                                 <tbody id="dashboardTableBody">
                                     <tr>
-                                        <td colspan="12" class="no-results">No data available</td>
+                                        <td colspan="13" class="no-results">No data available</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1740,6 +1750,7 @@
             return {
                 search: (document.getElementById('dashboardSearch')?.value || '').toLowerCase(),
                 status: document.getElementById('dashboardStatus')?.value || 'all',
+                source: document.getElementById('dashboardSource')?.value || 'all',
                 shippingVolume: document.getElementById('dashboardShippingVolume')?.value || 'all',
                 logisticsType: document.getElementById('dashboardLogisticsType')?.value || 'all',
                 scoreMin: parseFloat(document.getElementById('dashboardScoreMin')?.value || 0),
@@ -1760,6 +1771,9 @@
 
             // Status filter
             if (filters.status !== 'all' && item.status !== filters.status) return false;
+
+            // Source filter
+            if (filters.source !== 'all' && (item.source || 'zendesk') !== filters.source) return false;
 
             // Shipping volume filter
             if (filters.shippingVolume !== 'all' && item.estimated_shipping_volume !== filters.shippingVolume) return false;
@@ -1821,6 +1835,7 @@
         function resetDashboardFilters() {
             const searchEl = document.getElementById('dashboardSearch');
             const statusEl = document.getElementById('dashboardStatus');
+            const sourceEl = document.getElementById('dashboardSource');
             const shippingVolEl = document.getElementById('dashboardShippingVolume');
             const logisticsEl = document.getElementById('dashboardLogisticsType');
             const scoreMinEl = document.getElementById('dashboardScoreMin');
@@ -1828,6 +1843,7 @@
 
             if (searchEl) searchEl.value = '';
             if (statusEl) statusEl.value = 'all';
+            if (sourceEl) sourceEl.value = 'all';
             if (shippingVolEl) shippingVolEl.value = 'all';
             if (logisticsEl) logisticsEl.value = 'all';
             if (scoreMinEl) scoreMinEl.value = '0';
@@ -1840,6 +1856,7 @@
         function setupDashboardEventListeners() {
             const searchEl = document.getElementById('dashboardSearch');
             const statusEl = document.getElementById('dashboardStatus');
+            const sourceEl = document.getElementById('dashboardSource');
             const shippingVolEl = document.getElementById('dashboardShippingVolume');
             const logisticsEl = document.getElementById('dashboardLogisticsType');
             const scoreMinEl = document.getElementById('dashboardScoreMin');
@@ -1853,6 +1870,9 @@
             }
             if (statusEl) {
                 statusEl.addEventListener('change', applyDashboardFiltersAndSort);
+            }
+            if (sourceEl) {
+                sourceEl.addEventListener('change', applyDashboardFiltersAndSort);
             }
             if (shippingVolEl) {
                 shippingVolEl.addEventListener('change', applyDashboardFiltersAndSort);
@@ -1885,7 +1905,7 @@
 
         function renderDashboardTable() {
             if (!dashboardData.length) {
-                dashboardTableBody.innerHTML = '<tr><td colspan="12" class="no-results">No data available</td></tr>';
+                dashboardTableBody.innerHTML = '<tr><td colspan="13" class="no-results">No data available</td></tr>';
                 dashboardResultsCount.textContent = 'No data available';
                 dashboardPaginationContainer.style.display = 'none';
                 orgIdHeader.style.display = 'none';
@@ -1896,7 +1916,7 @@
             }
 
             if (!dashboardFilteredData.length) {
-                dashboardTableBody.innerHTML = '<tr><td colspan="12" class="no-results">No results found</td></tr>';
+                dashboardTableBody.innerHTML = '<tr><td colspan="13" class="no-results">No results found</td></tr>';
                 dashboardResultsCount.textContent = `Showing 0 of ${dashboardData.length} leads`;
                 dashboardPaginationContainer.style.display = 'none';
                 orgIdHeader.style.display = 'none';
@@ -1955,11 +1975,12 @@
 
             return `<tr onclick="openDashboardModal(${item.id})">
                 <td>${customerNameCell}</td>
-                <td>${item.email || 'N/A'}</td>
+                <td>${item.email || '—'}</td>
                 <td>${item.phone || '—'}</td>
                 <td>${shippingVol}</td>
                 <td>${logistics}</td>
                 <td>${leadScore}</td>
+                <td>${item.source || 'zendesk'}</td>
                 <td>${statusCell}</td>
                 <td>${createdAt}</td>
                 ${pushCell}
@@ -2033,10 +2054,11 @@
                     <div class="modal-grid">
                         <div class="modal-field"><label>Zendesk ID</label><div class="value">${item.zendesk_id || 'N/A'}</div></div>
                         <div class="modal-field"><label>Customer Name</label><div class="value">${item.customer_name || 'N/A'}</div></div>
-                        <div class="modal-field"><label>Email</label><div class="value">${item.email || 'N/A'}</div></div>
-                        <div class="modal-field"><label>Phone</label><div class="value">${item.phone || 'N/A'}</div></div>
-                        <div class="modal-field"><label>Time Zone</label><div class="value">${item.time_zone || 'N/A'}</div></div>
-                        <div class="modal-field"><label>Locale</label><div class="value">${item.locale || 'N/A'}</div></div>
+                        <div class="modal-field"><label>Email</label><div class="value">${item.email || '—'}</div></div>
+                        <div class="modal-field"><label>Phone</label><div class="value">${item.phone || '—'}</div></div>
+                        <div class="modal-field"><label>Address</label><div class="value">${item.address || '—'}</div></div>
+                        <div class="modal-field"><label>Locale</label><div class="value">${item.locale || '—'}</div></div>
+                        <div class="modal-field"><label>Source</label><div class="value">${item.source || 'zendesk'}</div></div>
                     </div>
                 </div>
                 <div class="modal-section">
