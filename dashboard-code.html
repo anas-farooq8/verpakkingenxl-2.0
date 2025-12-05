@@ -1,7 +1,7 @@
 <script>
     // Data injected by n8n
     window.kvsDataFromN8n = {{ JSON.stringify($('Aggregate KVS').item.json.data) }};
-    window.zendeskDataFromN8n = {{ JSON.stringify($('Aggregate Zendesk Data').item.json.data) }};
+    window.zendeskDataFromN8n = {{ JSON.stringify($('Aggregate Customer Data').item.json.data) }};
 </script>
 
 <!DOCTYPE html>
@@ -150,6 +150,14 @@
         .import-btn:hover {
             background: #2980b9;
             transform: translateY(-1px);
+        }
+
+        .import-btn.excel-btn {
+            background: #27ae60;
+        }
+
+        .import-btn.excel-btn:hover {
+            background: #229954;
         }
 
         input[type="file"] {
@@ -799,6 +807,8 @@
             }
         }
     </style>
+    <!-- SheetJS library for Excel parsing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -920,9 +930,13 @@
                 <div id="tab-import" class="tab-content">
                     <div class="data-section">
                         <div class="data-header">
-                            <h2>Zendesk Users</h2>
-                            <label for="fileInput" class="import-btn" id="importBtn">Import Zendesk JSONL File</label>
-                            <input type="file" id="fileInput" accept=".jsonl,.json" style="display: none;">
+                            <h2>Customers</h2>
+                            <div style="display: flex; gap: 10px;">
+                                <label for="fileInput" class="import-btn" id="importBtn">Import Zendesk JSONL File</label>
+                                <input type="file" id="fileInput" accept=".jsonl,.json" style="display: none;">
+                                <label for="excelFileInput" class="import-btn excel-btn" id="importExcelBtn">Import Custom ERP Excel File</label>
+                                <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;">
+                            </div>
                         </div>
 
                         <div class="loading" id="loading"
@@ -965,14 +979,14 @@
                                         <th>Name</th>
                                         <th>Email</th>
                                         <th>Phone</th>
-                                        <th>Time Zone</th>
+                                        <th>Address</th>
                                         <th>Locale</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tableBody">
                                     <tr>
-                                        <td colspan="7" class="no-results">No data loaded. Please import a JSONL file.</td>
+                                        <td colspan="7" class="no-results">No data loaded. Please import a file.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1072,6 +1086,7 @@
 
         // DOM elements
         const fileInput = document.getElementById('fileInput');
+        const excelFileInput = document.getElementById('excelFileInput');
         const loading = document.getElementById('loading');
         const error = document.getElementById('error');
         const resultsCount = document.getElementById('resultsCount');
@@ -1085,6 +1100,7 @@
         const lastBtn = document.getElementById('lastBtn');
         const refreshBtn = document.getElementById('refreshBtn');
         const importBtn = document.getElementById('importBtn');
+        const importExcelBtn = document.getElementById('importExcelBtn');
         const filtersSection = document.getElementById('filtersSection');
         const searchInput = document.getElementById('searchQuery');
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
@@ -1093,9 +1109,9 @@
         const saveKvsBtn = document.getElementById('save-kvs-btn');
         const saveKvsBtnText = document.getElementById('save-btn-text');
 
-        const SAVE_WEBHOOK_URL = 'https://your-n8n-domain/webhook/save-raw-zendesk-data';
-        const KVS_WEBHOOK_URL = 'https://your-n8n-domain/webhook/update-kvs-2.0';
-        const PUSH_WEBHOOK_URL = 'https://your-n8n-domain/webhook/push-to-pipedrive';
+        const SAVE_WEBHOOK_URL = 'https://n8n.srv1148868.hstgr.cloud/webhook/save-raw-data';
+        const KVS_WEBHOOK_URL = 'https://n8n.srv1148868.hstgr.cloud/webhook/update-kvs-2.0';
+        const PUSH_WEBHOOK_URL = 'https://n8n.srv1148868.hstgr.cloud/webhook/push-to-pipedrive';
 
         const KVS_FIELDS = [
             { id: 'system_prompt_base_agent', key: 'system_prompt_base_agent' },
@@ -1124,7 +1140,7 @@
             tableContainer.classList.remove('active');
             paginationContainer.style.display = 'none';
             filtersSection.style.display = 'none';
-            tableBody.innerHTML = '<tr><td colspan="7" class="no-results">No data loaded. Please import a JSONL file.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="7" class="no-results">No data loaded. Please import a file.</td></tr>';
             resultsCount.textContent = 'No data loaded';
         };
 
@@ -1224,8 +1240,9 @@
                         name: rawUser.name,
                         email: rawUser.email,
                         phone: rawUser.phone,
-                        iana_time_zone: rawUser.iana_time_zone,
-                        locale: rawUser.locale
+                        address: null,
+                        locale: rawUser.locale,
+                        source: 'zendesk'
                     });
                 } catch (err) {
                     hideLoading();
@@ -1248,13 +1265,115 @@
             // Success - commit the data
             allUsers = tempUsers;
 
-            // Disable import while data is loaded
+            // Disable both import buttons while data is loaded
             importBtn.classList.add('disabled');
             importBtn.style.pointerEvents = 'none';
+            importExcelBtn.classList.add('disabled');
+            importExcelBtn.style.pointerEvents = 'none';
 
             // Show results
             renderTable();
             showResults();
+        }
+
+        // Handle Excel file selection
+        function handleExcelFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            hideError();
+            hideResults();
+            showLoading();
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    parseExcel(e.target.result);
+                } catch (err) {
+                    allUsers = [];
+                    excelFileInput.value = '';
+                    showError('Failed to parse Excel file: ' + err.message);
+                    hideLoading();
+                }
+            };
+            reader.onerror = () => {
+                allUsers = [];
+                excelFileInput.value = '';
+                showError('Failed to read Excel file');
+                hideLoading();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Parse Excel content
+        function parseExcel(data) {
+            try {
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                const tempUsers = [];
+
+                for (let i = 0; i < jsonData.length; i++) {
+                    const row = jsonData[i];
+
+                    // Map Excel columns to our data structure
+                    const klantCode = row['Klant code'] || row['Klant code'] || '';
+                    const klant = row['Klant'] || '';
+                    const adresregels = row['Adresregels'] || '';
+                    const postcode = row['Postcode'] || '';
+                    const plaats = row['Plaats'] || '';
+                    const provincie = row['Provincie'] || '';
+                    const land = row['Land'] || '';
+
+                    // Skip rows without required data
+                    if (!klantCode || !klant) {
+                        continue;
+                    }
+
+                    // Construct address from components
+                    const addressParts = [adresregels, postcode, plaats, provincie, land].filter(part => part);
+                    const address = addressParts.length > 0 ? addressParts.join(', ') : '-';
+
+                    tempUsers.push({
+                        id: String(klantCode).trim(),
+                        name: String(klant).trim(),
+                        email: null,
+                        phone: null,
+                        address: address,
+                        locale: null,
+                        source: 'erp'
+                    });
+                }
+
+                hideLoading();
+
+                if (tempUsers.length === 0) {
+                    allUsers = [];
+                    excelFileInput.value = '';
+                    showError('No valid records found in Excel file. File discarded.');
+                    return;
+                }
+
+                // Success - commit the data
+                allUsers = tempUsers;
+
+                // Disable import while data is loaded
+                importBtn.classList.add('disabled');
+                importBtn.style.pointerEvents = 'none';
+                importExcelBtn.classList.add('disabled');
+                importExcelBtn.style.pointerEvents = 'none';
+
+                // Show results
+                renderTable();
+                showResults();
+            } catch (err) {
+                hideLoading();
+                allUsers = [];
+                excelFileInput.value = '';
+                showError('Error parsing Excel file: ' + err.message);
+            }
         }
 
         // Render table for current page
@@ -1289,7 +1408,7 @@
                     <td>${formatValue(user.name)}</td>
                     <td>${formatValue(user.email)}</td>
                     <td>${formatValue(user.phone)}</td>
-                    <td>${formatValue(user.iana_time_zone)}</td>
+                    <td>${formatValue(user.address)}</td>
                     <td>${formatValue(user.locale)}</td>
                     <td><button class="delete-btn" onclick="deleteUser('${String(user.id)}')">Delete</button></td>
                 </tr>`;
@@ -1379,6 +1498,7 @@
 
         // Event listeners
         fileInput.addEventListener('change', handleFileSelect);
+        excelFileInput.addEventListener('change', handleExcelFileSelect);
         refreshBtn.addEventListener('click', refreshData);
         searchInput.addEventListener('input', () => {
             currentPage = 1;
@@ -1394,13 +1514,16 @@
             allUsers = [];
             currentPage = 1;
             fileInput.value = '';
+            excelFileInput.value = '';
             searchInput.value = '';
             hideError();
             hideResults();
 
-            // Re-enable import button
+            // Re-enable import buttons
             importBtn.classList.remove('disabled');
             importBtn.style.pointerEvents = '';
+            importExcelBtn.classList.remove('disabled');
+            importExcelBtn.style.pointerEvents = '';
         }
 
         discardBtn.addEventListener('click', () => {
@@ -1420,10 +1543,22 @@
             saveProcessingBtn.textContent = 'Saving...';
 
             try {
+                // Get source from first user (all users in the array have the same source)
+                const source = allUsers[0]?.source || 'unknown';
+                
+                // Remove source field from user objects before sending
+                const usersWithoutSource = allUsers.map(user => {
+                    const { source, ...userData } = user;
+                    return userData;
+                });
+
                 const response = await fetch(SAVE_WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(allUsers)
+                    body: JSON.stringify({
+                        source: source,
+                        data: usersWithoutSource
+                    })
                 });
 
                 let data = null;
