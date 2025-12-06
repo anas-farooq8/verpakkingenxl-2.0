@@ -1031,13 +1031,8 @@
                         </div>
 
                         <div class="kvs-item limit-item">
-                            <label for="pipedrive_push_limit">📦 Automated Pipedrive Push Limit</label>
-                            <input type="number" id="pipedrive_push_limit" placeholder="Enter Pipedrive push limit...">
-                        </div>
-
-                        <div class="kvs-item limit-item">
-                            <label for="daily_processing_limit">📅 Daily Lead Processing Limit</label>
-                            <input type="number" id="daily_processing_limit" placeholder="Enter daily processing limit...">
+                            <label for="daily_processing_limit">📅 Hourly Lead Processing Limit</label>
+                            <input type="number" id="daily_processing_limit" placeholder="Enter hourly processing limit...">
                         </div>
                     </div>
 
@@ -1126,7 +1121,6 @@
         const KVS_FIELDS = [
             { id: 'system_prompt_base_agent', key: 'system_prompt_base_agent' },
             { id: 'system_prompt_web_search_agent', key: 'system_prompt_web_search_agent' },
-            { id: 'pipedrive_push_limit', key: 'pipedrive_push_limit' },
             { id: 'daily_processing_limit', key: 'daily_processing_limit' }
         ];
 
@@ -1610,8 +1604,7 @@
             const placeholders = {
                 system_prompt_base_agent: 'No Available Data',
                 system_prompt_web_search_agent: 'No Available Data',
-                pipedrive_push_limit: 'No Data',
-                daily_processing_limit: 'No Data'
+                daily_processing_limit: '0'
             };
 
             const kvsData = Array.isArray(window.kvsDataFromN8n) ? window.kvsDataFromN8n : [];

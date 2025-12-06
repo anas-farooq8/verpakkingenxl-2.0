@@ -238,7 +238,7 @@
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        800,
+        816,
         304
       ],
       "id": "bfec5e52-3edd-4dbc-a078-668301a3edfc",
@@ -349,7 +349,7 @@
       },
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        432,
+        464,
         176
       ],
       "typeVersion": 1,
@@ -374,23 +374,6 @@
     },
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {}
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        368,
-        304
-      ],
-      "id": "f1ebb2a1-2bfa-4ca1-91ac-d9f7fa06e649",
-      "name": "Schedule Trigger"
-    },
-    {
-      "parameters": {
         "operation": "get",
         "dataTableId": {
           "__rl": true,
@@ -404,7 +387,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1,
       "position": [
-        608,
+        624,
         304
       ],
       "id": "24cf5009-60d6-4f0d-93c4-006bf58ace59",
@@ -1107,6 +1090,25 @@
       "typeVersion": 1,
       "id": "d6a22256-f37a-403e-a77a-553b6ff64826",
       "name": "Batch Processing Schedule"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        304
+      ],
+      "id": "f1ebb2a1-2bfa-4ca1-91ac-d9f7fa06e649",
+      "name": "Schedule Trigger erp"
     }
   ],
   "connections": {
@@ -1227,11 +1229,6 @@
         ]
       ]
     },
-    "Schedule Trigger": {
-      "main": [
-        []
-      ]
-    },
     "Get KVS": {
       "main": [
         [
@@ -1315,6 +1312,17 @@
         [
           {
             "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger erp": {
+      "main": [
+        [
+          {
+            "node": "Get KVS",
             "type": "main",
             "index": 0
           }
