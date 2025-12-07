@@ -1063,8 +1063,8 @@
         const itemsPerPage = 20;
         let kvsFieldsEdited = false;
 
-        // Blocklist of free / personal providers (base label, regardless of TLD)
-        const BLOCKLIST_FREE_PROVIDERS = [
+        const BLOCKLIST_BASE_DOMAINS = [
+            // A. Free Email Providers
             'gmail',
             'googlemail',
             'google',
@@ -1086,7 +1086,57 @@
             'yandex',
             'rambler',
             'qq',
-            'web'
+            'web',
+
+            // B. ISP / Telecom Providers
+            'ziggo',
+            'kpnmail',
+            'kpnplanet',
+            'planet',
+            'home',
+            'upcmail',
+            'xs4all',
+            'hetnet',
+            'chello',
+            'quicknet',
+            'casema',
+            'telfort',
+            'zeelandnet',
+            'telenet',
+            'skynet',
+            'caiway',
+            'solcon',
+            'online',
+            'zonnet',
+            'kabelfoon',
+            'scarlet',
+            'proximus',
+            'tele2',
+            'onsbrabantnet',
+            't-mobilethuis',
+            'wxs',
+            'hccnet',
+            'kliksafe',
+
+            // C. Suspicious
+            'bagat-1',
+            'bagat-2',
+            'bagat-3',
+            'bagat-4',
+            'expl0it',
+            'bobbor',
+            'atrimoney',
+
+            // D. Marketplace / Notifications
+            'partnerplatform',
+            'verkopen',
+            'klantbericht',
+            'mail.marktplaats',
+            'edm.postnl',
+
+            // E. Routing / Bulk Senders
+            'gls-netherlands',
+            'course-fitness',
         ];
 
         // DOM elements
@@ -1168,7 +1218,7 @@
             const parts = domain.split('.');
             if (parts.length === 0) return false;
             const provider = parts[0];
-            return BLOCKLIST_FREE_PROVIDERS.includes(provider);
+            return BLOCKLIST_BASE_DOMAINS.includes(provider);
         }
 
         // Helpers for name/email filters
