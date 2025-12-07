@@ -131,22 +131,6 @@
     {
       "parameters": {
         "content": "",
-        "height": 480,
-        "width": 1376,
-        "color": 5
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        208,
-        800
-      ],
-      "typeVersion": 1,
-      "id": "a35a705b-c413-4bd2-aec0-0714e8cb8644",
-      "name": "Sticky Note1"
-    },
-    {
-      "parameters": {
-        "content": "",
         "height": 1616,
         "width": 1920,
         "color": 6

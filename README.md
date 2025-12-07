@@ -85,7 +85,6 @@ Browser Dashboard (dashboard-code.html from Dashboard-2.0)
   - UI for editing KVS keys used by the workflows:
     - `system_prompt_base_agent`
     - `system_prompt_web_search_agent`
-    - `pipedrive_push_limit`
     - `daily_processing_limit`
   - Saves configuration by POSTing to `/update-kvs-2.0`
 
@@ -149,7 +148,6 @@ This workflow has two major responsibilities: AI enrichment (scoring) and pushin
     - `is_searched = true`
     - `status = "queued"`
   - `Sort` – Orders by `lead_score` descending
-  - `Get Push Limit` (from KVS) + `Limit` – Restricts batch size based on `pipedrive_push_limit`
   - `Loop Over Items` – Iterates over the selected leads
 
 - **Pipedrive creation:**
@@ -334,7 +332,6 @@ Configuration key-value store:
 **Required Keys:**
 - `system_prompt_base_agent` - AI prompt for base agent
 - `system_prompt_web_search_agent` - AI prompt for search agent
-- `pipedrive_push_limit` - Max leads to push to Pipedrive per run (stringified number)
 - `daily_processing_limit` - Max leads to AI-process per day (stringified number)
 
 ### Step 3: Configure Credentials
@@ -399,7 +396,6 @@ In version 2.0 there is **no Lightspeed webhook**. Data enters the system via:
 INSERT INTO "verpakkingenxl-2.0-KVS" (key, value) VALUES 
 ('system_prompt_base_agent', 'You are a B2B lead qualification expert...'),
 ('system_prompt_web_search_agent', 'You are a web research specialist...'),
-('pipedrive_push_limit', '50'),
 ('daily_processing_limit', '200');
 ```
 
@@ -467,16 +463,6 @@ search the internet to find:
 
 Return concise, factual information that helps evaluate the company
 as a potential B2B customer for packaging supplies.
-```
-
-### Batch Processing
-
-Adjust the number of leads processed daily:
-
-```sql
-UPDATE "verpakkingenxl-2.0-KVS" 
-SET value = '50' 
-WHERE key = 'pipedrive_push_limit';
 ```
 
 ### Scheduling
