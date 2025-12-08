@@ -130,7 +130,7 @@
         "genericAuthType": "httpQueryAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"name\": \"{{ $json.body.customer_name }}{{ $json.body.email ? \"-\" + $json.body.email.split('@').pop() : '' }}\",\n  \"label_ids\": [10],\n  \"visible_to\": 3,\n  \"custom_fields\": {\n    \"1a654f5d25fbae0ae82577dfa3448024f852e366\": \"{{ $json.body.zendesk_id }}\",\n    \"e62dba18429c4bb3307916ec46a4793d22f970c2\": {{ $json.body.lead_score }},\n    \"13096dc68ea12064d2c5e0935722ff0839caff2f\": \"{{ $json.body.estimated_shipping_volume }}\",\n    \"5df1b60a6200ac568db991d4e1440459a92ff39b\": \"{{ $json.body.likely_logistics_type }}\",\n    \"a000a1a83ca6689b763f109e03c5f43eb78e71cf\": {{ $json.body.zendesk_id }}\n  }\n}",
+        "jsonBody": "={\n  \"name\": \"{{ $json.body.customer_name }}{{ $json.body.email ? \"-\" + $json.body.email.split('@').pop() : '' }}\",\n  \"label_ids\": [10],\n  \"visible_to\": 3,\n  {{ $json.body.address ? `\"address\": {\n    \\\"value\\\": \\\"${$json.body.address}\\\"\n  },` : \"\" }}\n  \"custom_fields\": {\n    \"1a654f5d25fbae0ae82577dfa3448024f852e366\": \"{{ $json.body.zendesk_id }}\",\n    \"e62dba18429c4bb3307916ec46a4793d22f970c2\": {{ $json.body.lead_score }},\n    \"13096dc68ea12064d2c5e0935722ff0839caff2f\": \"{{ $json.body.estimated_shipping_volume }}\",\n    \"5df1b60a6200ac568db991d4e1440459a92ff39b\": \"{{ $json.body.likely_logistics_type }}\",\n    \"a000a1a83ca6689b763f109e03c5f43eb78e71cf\": {{ $json.body.zendesk_id }}\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -157,7 +157,7 @@
         "genericAuthType": "httpQueryAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"name\": \"{{ $('Webhook').item.json.body.customer_name }}\",\n  \"label_ids\": [14],\n  \"org_id\": {{ $json.data.id }},\n  \"emails\": [\n    {\n      \"value\": \"{{ $('Webhook').item.json.body.email }}\",\n      \"primary\": true,\n      \"label\": \"Work\"\n    }\n  ],\n  \"phones\": [\n    {\n      \"value\": \"{{ $('Webhook').item.json.body.phone }}\",\n      \"primary\": true,\n      \"label\": \"Phone\"\n    }\n  ],\n  \"visible_to\": 3\n}",
+        "jsonBody": "={\n  \"name\": \"{{ $('Webhook').item.json.body.customer_name }}\",\n  \"label_ids\": [14],\n  \"org_id\": {{ $json.data.id }},\n  {{ $('Webhook').item.json.body.email ? `\"emails\": [{\n      \\\"value\\\": \\\"${$('Webhook').item.json.body.email}\\\",\n      \\\"primary\\\": true,\n      \\\"label\\\": \\\"Work\\\"\n    }],` : \"\" }}\n  \"phones\": [\n    {\n      \"value\": \"{{ $('Webhook').item.json.body.phone }}\",\n      \"primary\": true,\n      \"label\": \"Phone\"\n    }\n  ],\n  \"visible_to\": 3\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -493,7 +493,7 @@
           "conditions": [
             {
               "keyName": "zendesk_id",
-              "keyValue": "={{ $('Loop Over Raw Items').item.json.zendesk_id }}"
+              "keyValue": "={{ $('Loop Over Raw Items').first().json.zendesk_id }}"
             }
           ]
         },
@@ -522,7 +522,7 @@
           "conditions": [
             {
               "keyName": "zendesk_id",
-              "keyValue": "={{ $('Loop Over Raw Items').item.json.zendesk_id }}"
+              "keyValue": "={{ $('Loop Over Raw Items').first().json.zendesk_id }}"
             }
           ]
         },
@@ -535,7 +535,7 @@
             "reason": "={{ $json.output.reason }}",
             "likely_logistics_type": "={{ $json.output.likely_logistics_type.toLowerCase() }}",
             "compact_instruction": "={{ $json.output.compact_instruction }}",
-            "note": "=<p><strong>From: {{ $('Loop Over Raw Items').item.json.source.charAt(0).toUpperCase() + $('Loop Over Raw Items').item.json.source.slice(1) }}</strong></p>\n<p><strong>AI Qualification Result:</strong></p>\n<ul>\n  <li><strong>Decision:</strong> {{ $('AI Agent').item.json.output.decision.toLowerCase() }}</li>\n  <li><strong>Lead Score:</strong> {{ $('AI Agent').item.json.output.score }}</li>\n  <li><strong>Reason:</strong> {{ $('AI Agent').item.json.output.reason }}</li>\n  <li><strong>Estimated Shipping Volume:</strong> {{ $('AI Agent').item.json.output.estimated_shipping_volume.toLowerCase() }}</li>\n  <li><strong>Likely Logistics Type:</strong> {{ $('AI Agent').item.json.output.likely_logistics_type.toLowerCase() }}</li>\n  <li><strong>Summary:</strong> {{ $('AI Agent').item.json.output.compact_instruction }}</li>\n</ul>",
+            "note": "=<p><strong>From: {{ $('Loop Over Raw Items').first().json.source.charAt(0).toUpperCase() + $('Loop Over Raw Items').first().json.source.slice(1) }}</strong></p>\n<p><strong>AI Qualification Result:</strong></p>\n<ul>\n  <li><strong>Decision:</strong> {{ $('AI Agent').item.json.output.decision.toLowerCase() }}</li>\n  <li><strong>Lead Score:</strong> {{ $('AI Agent').item.json.output.score }}</li>\n  <li><strong>Reason:</strong> {{ $('AI Agent').item.json.output.reason }}</li>\n  <li><strong>Estimated Shipping Volume:</strong> {{ $('AI Agent').item.json.output.estimated_shipping_volume.toLowerCase() }}</li>\n  <li><strong>Likely Logistics Type:</strong> {{ $('AI Agent').item.json.output.likely_logistics_type.toLowerCase() }}</li>\n  <li><strong>Summary:</strong> {{ $('AI Agent').item.json.output.compact_instruction }}</li>\n</ul>",
             "is_searched": true
           },
           "matchingColumns": [],
