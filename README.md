@@ -17,7 +17,8 @@ Leads are stored in an n8n Data Table, reviewed via a web dashboard, and synchro
 ## ✨ Key Features
 
 - **Zendesk JSONL Import** – Upload exported Zendesk users (JSON/JSONL) via the dashboard
-- **Email Domain Filtering** – Drops free/personal email providers (gmail, outlook, yahoo, etc.) on import
+- **Custom ERP Excel Import** – Import customer data from Excel files (.xlsx/.xls) with automatic column mapping for Dutch ERP systems
+- **Email Domain Filtering** – Drops free/personal email providers (gmail, outlook, yahoo, etc.) on import for Zendesk data
 - **AI Lead Enrichment** – Google Gemini + web search agent generates decision, reasoning, shipping volume, logistics type and lead score
 - **Scoring & Queueing** – Only leads with decision `YES` and score \> 5 are queued
 - **Batch & Webhook Push** – Daily scheduled push at 21:00 plus a `/push-to-pipedrive` webhook for on‑demand pushes
@@ -28,9 +29,9 @@ Leads are stored in an n8n Data Table, reviewed via a web dashboard, and synchro
 ## 🏗️ High‑Level Architecture
 
 ```text
-Zendesk Users (export JSONL)
+Zendesk/ERP Data (JSONL or Excel)
         │
-        │  (Upload via dashboard → /save-raw-zendesk-data)
+        │  (Upload via dashboard → /save-raw-data)
         ▼
 ┌────────────────────────────────────┐
 │  Data Table: verpakkingenxl-2.0   │
@@ -76,10 +77,28 @@ Browser Dashboard (dashboard-code.html from Dashboard-2.0)
     - Shows a green **Push to Pipedrive** button which calls the `/push-to-pipedrive` webhook and updates the row when IDs are returned
 
 - **📥 Import Data**
-  - Accepts `.jsonl` / `.json` files exported from Zendesk
-  - Filters out free/personal email domains on the client side before saving
-  - Provides search + delete per row, and “Save data for processing” button
-  - On save, POSTs the cleaned user list to `/save-raw-zendesk-data`
+  - **Zendesk Import:**
+    - Accepts `.jsonl` / `.json` files exported from Zendesk
+    - Filters out free/personal email domains on the client side before saving
+    - On save, POSTs the cleaned user list to `/save-raw-data`
+  - **Custom ERP Excel Import:**
+    - Accepts `.xlsx` / `.xls` files from ERP systems
+    - Uses SheetJS library for client-side Excel parsing
+    - Automatically maps Dutch column names to standard fields:
+      - `Klant code` → Customer ID
+      - `Klant` → Customer Name
+      - `Adresregels` → Street Address
+      - `Postcode` → Postal Code
+      - `Plaats` → City
+      - `Provincie` → Province/State
+      - `Land` → Country
+    - Constructs full addresses from address components
+    - Tags records with `source: 'erp'` for tracking
+    - Validates required fields (Customer Code and Name)
+  - **Common Features:**
+    - Search + delete per row functionality
+    - "Save data for processing" button to batch import
+    - Real-time filtering and preview before saving
 
 - **⚙️ KVS Configuration**
   - UI for editing KVS keys used by the workflows:
@@ -88,21 +107,71 @@ Browser Dashboard (dashboard-code.html from Dashboard-2.0)
     - `daily_processing_limit`
   - Saves configuration by POSTing to `/update-kvs-2.0`
 
-### 2. Zendesk Import Workflow (Dashboard-2.0)
+### 2. Data Import Workflow (Dashboard-2.0)
 
-**Purpose:** Accepts cleaned Zendesk user data from the dashboard and stores it in the main Data Table.
+**Purpose:** Accepts both Zendesk and ERP customer data from the dashboard and stores it in the main Data Table.
 
-- **Endpoint:** `POST /save-raw-zendesk-data`
+- **Endpoint:** `POST /save-raw-data`
+- **Supported Sources:**
+  - Zendesk users (JSONL/JSON export)
+  - Custom ERP Excel files (.xlsx/.xls)
+
 - **Flow (simplified):**
-  1. `Zendesk Webhook` – Receives an array of Zendesk users
-  2. `Loop Over Items` – Iterates over each user
-  3. `Check If Already Exists` – Looks up `zendesk_id` in `verpakkingenxl-2.0-zendesk`
+  1. `Data Webhook` – Receives an array of customer records (from either source)
+  2. `Loop Over Items` – Iterates over each record
+  3. `Check If Already Exists` – Looks up `zendesk_id` or `id` in `verpakkingenxl-2.0-zendesk`
   4. `If No Match` – Only proceed when no existing row is found
-  5. `Insert Raw Zendesk Data` – Writes a new row with:
-     - `zendesk_id`, `customer_name`, `email`, `phone`, `time_zone`, `locale`
+  5. `Insert Data` – Writes a new row with:
+     - `zendesk_id` (or `id` for ERP), `customer_name`, `email`, `phone`, `time_zone`, `locale`, `address`
      - `status = "queued"`
      - `is_searched = false`
+     - `source` field to track origin (zendesk/erp)
   6. `Return Success` – Responds `{ "status": "success" }` to the dashboard
+
+#### Client-Side Processing for Excel Files
+
+**Purpose:** Import customer data from Excel files exported from ERP systems, particularly for Dutch businesses.
+
+- **Library:** SheetJS (XLSX) v0.20.1
+- **Processing:** Client-side in the browser (no server-side Excel parsing required)
+- **Supported Formats:** `.xlsx`, `.xls`
+- **Column Mapping:**
+
+  | Excel Column (Dutch) | Mapped Field | Notes |
+  |---------------------|--------------|-------|
+  | Klant code | ID | Required - unique customer identifier |
+  | Klant | Name | Required - customer/company name |
+  | Adresregels | Address (part) | Street address |
+  | Postcode | Address (part) | Postal code |
+  | Plaats | Address (part) | City |
+  | Provincie | Address (part) | Province/State |
+  | Land | Address (part) | Country |
+
+- **Processing Logic:**
+  1. Reads first sheet of Excel workbook
+  2. Converts sheet to JSON array
+  3. Maps Dutch column names to standard fields
+  4. Combines address components into single address field (comma-separated)
+  5. Validates required fields (`Klant code` and `Klant`)
+  6. Skips rows missing required data
+  7. Tags all records with `source: 'erp'`
+  8. Sets email, phone, and locale to `null` (not available in ERP export)
+  9. Displays preview table for review before saving
+
+- **Error Handling:**
+  - Shows error if file cannot be parsed
+  - Displays error if no valid records found
+  - Automatically discards invalid data
+  - Validates file format before processing
+
+- **User Workflow:**
+  1. Click "Import Custom ERP Excel File" button
+  2. Select Excel file from file system
+  3. System parses and validates data
+  4. Preview appears in table with filters
+  5. Review and optionally delete unwanted rows
+  6. Click "Save data for processing"
+  7. Data is sent to `/save-raw-data` endpoint (same as Zendesk import)
 
 ### 3. Main-2.0 – AI Scoring & Pipedrive Sync
 
@@ -175,103 +244,17 @@ This workflow has two major responsibilities: AI enrichment (scoring) and pushin
 
 **Purpose:** Catches workflow failures and emails a formatted error report.
 
-- Triggered by n8n’s Error Trigger for all workflows
-- Sends an HTML email containing:
-  - Workflow name
-  - Node that failed
-  - Error message
-  - Direct link to the failed execution
-- Requires SMTP credentials configured in n8n
-
-### 2. Batch Processing Workflow
-
-**Purpose:** Pushes qualified leads to Pipedrive on a schedule.
-
-**Trigger:** Daily at 21:00 (9:00 PM) Netherlands time
-
-**Process:**
-1. Fetches batch size limit from KVS configuration table
-2. Retrieves all leads with status = "queued"
-3. Sorts by lead_score (highest first)
-4. Limits to configured batch size
-5. Loops through each lead:
-   - Creates Organization in Pipedrive
-   - Creates Person (contact)
-   - Creates Deal (pipeline stage 1)
-   - Creates Note (AI summary + order history)
-6. Updates lead status to "processed"
-7. Stores Pipedrive IDs in database
-
-### 2. Dashboard Workflow
-
-**Purpose:** Provides web interface for monitoring and configuration.
-
-**Endpoint:** `GET /verpakkingenxl-2.0`
-
-**Features:**
-- Real-time lead monitoring with filters
-- Status tracking (queued/processed)
-- Location and score filtering
-- Sortable data table with pagination
-- Lead detail modal popups
-- KVS configuration editor
-
-### 5. KVS Update Workflow
-
-**Purpose:** Updates system configuration via dashboard.
-
-**Endpoint:** `POST /update-kvs`
-
-**Updates:**
-- AI system prompts
-- Batch size limits
-- Other configuration parameters
-
-### 6. Error Notification Workflow
-
-**Purpose:** Global error handler that automatically sends email alerts when any workflow fails.
-
-**Trigger:** Error Trigger (catches failures from all workflows)
-
-**Process:**
-1. **Error Trigger** - Detects when any workflow execution fails
-2. **Edit Error Message** - Formats error details into styled HTML email with:
-   - Workflow name that failed
-   - Error message from the failed node
-   - Name of the node that caused the failure
-   - Direct link to the execution details
-3. **Notify User** - Sends email notification via SMTP
-
-**Email Template Features:**
-- Mobile-responsive HTML design
-- Professional styling with clear error highlighting
-- System tag: "verpakkingenxl – Lead Processing System"
-- Monospace formatting for technical details
-- Direct link to view full execution in n8n
-
-**Configuration Required:**
-- SMTP credentials in n8n
-- Update `fromEmail` and `toEmail` in the "Notify User" node
-
-**Note:** This workflow acts as a safety net for the entire system, ensuring you're immediately notified of any issues in the lead processing pipeline.
+- **Trigger:** Error Trigger (catches failures from all workflows)
+- **Email Contains:** Workflow name, failed node, error message, execution link
+- **Configuration Required:** SMTP credentials, `fromEmail` and `toEmail` in "Notify User" node
 
 ### Required Credentials in n8n
 
 Configure these in n8n's credential manager:
 
-- **Pipedrive API** (Query Auth)
-  - Parameter: `api_token`
-  - Value: Your Pipedrive API token
-
-- **Google Gemini API**
-  - API Key from Google Cloud Console
-
-- **SMTP Account** (for error notifications)
-  - Host: Your SMTP server
-  - Port: Usually 587 or 465
-  - Username: Your email address
-  - Password: Your email password or app-specific password
-  - Secure: False
+- **Pipedrive API** (Query Auth) – API token from Pipedrive
+- **Google Gemini API** – API Key from Google Cloud Console
+- **SMTP Account** (for error notifications) – Email credentials for notifications
 
 ## 🚀 Installation & Setup
 
@@ -287,6 +270,8 @@ cd verpakkingenxl-2.0
    - Open n8n interface
    - Go to Workflows → Import from File
    - Import each JSON file from `/workflows` folder
+
+**Note:** The dashboard automatically loads the SheetJS library from CDN for Excel parsing functionality. No additional installation is required for the Custom ERP Excel Import feature.
 
 ### Step 2: Create Data Tables
 
@@ -381,11 +366,11 @@ Configuration key-value store:
    - Open "Create Deal" node
    - Set `pipeline_id` and `stage_id`
 
-### Step 6: Webhooks in 2.0
+### Step 6: Webhooks
 
-In version 2.0 there is **no Lightspeed webhook**. Data enters the system via:
-- Zendesk export (JSON/JSONL) uploaded through the dashboard
-- Optional `/push-to-pipedrive` webhook, used only for pushing already‑qualified leads from the queue into Pipedrive.
+Data enters the system via:
+- `/save-raw-data` – Unified endpoint for both Zendesk (JSON/JSONL) and ERP Excel imports via dashboard
+- `/push-to-pipedrive` – Pushes already-qualified leads from queue to Pipedrive (optional, on-demand)
 
 ### Step 7: Initialize KVS Configuration
 
@@ -474,30 +459,62 @@ Modify the batch processing time:
 
 ## 📊 Usage
 
-### Monitoring Leads
+### Importing Data
 
 Access the dashboard at: `https://your-n8n-instance.com/webhook/verpakkingenxl-2.0`
+
+#### Zendesk Import Process
+
+1. Export users from Zendesk in JSONL format
+2. Click "Import Zendesk JSONL File" button
+3. Select your `.jsonl` or `.json` file
+4. System automatically filters out personal email domains
+5. Review imported data in the preview table
+6. Delete any unwanted records using row actions
+7. Click "Save data for processing"
+
+#### Custom ERP Excel Import Process
+
+1. Export customer data from your ERP system to Excel
+2. Ensure Excel file has these columns (Dutch names):
+   - `Klant code` (Customer Code) - **Required**
+   - `Klant` (Customer Name) - **Required**
+   - `Adresregels`, `Postcode`, `Plaats`, `Provincie`, `Land` (Address components)
+3. Click "Import Custom ERP Excel File" button
+4. Select your `.xlsx` or `.xls` file
+5. System parses Excel and constructs addresses automatically
+6. Review imported data in the preview table
+7. Use search to find specific records
+8. Delete any unwanted records using row actions
+9. Click "Save data for processing"
+
+**Supported Excel Column Names:**
+- Dutch ERP systems: Klant code, Klant, Adresregels, Postcode, Plaats, Provincie, Land
+- Column names are case-sensitive
+- Only first sheet of workbook is processed
+- Rows without both Customer Code and Name are automatically skipped
+
+### Monitoring Leads
 
 **Dashboard Features:**
 - **Filters:**
   - Status: All, Queued, Processed
   - Location: Filter by city/country
   - Lead Score: Minimum score threshold
+  - Source: Filter by data source (Zendesk/ERP)
 
 - **Lead Table:**
   - Sortable columns
   - Pagination (20 records per page)
   - Click row for detailed view
+  - Links to Pipedrive for processed leads
 
 - **KVS Configuration Tab:**
   - Edit AI prompts
   - Adjust batch size
   - Save changes via POST request
 
-## 🗂️ Data Structure
-
-### Lead Processing States
-### Pipedrive Record Structure
+## 🗂️ Pipedrive Record Structure
 
 **Organization:**
 - Name, address, contact details
@@ -512,12 +529,10 @@ Access the dashboard at: `https://your-n8n-instance.com/webhook/verpakkingenxl-2
 **Deal:**
 - Title: "New Business Lead – [Company Name]"
 - Pipeline: Stage 1
-- Source: Zendesk
 - Linked to Organization and Person
 
 **Note:**
 - AI qualification summary
-- Complete order history
 - Lead score and reasoning
 - Pinned to Deal
 
@@ -573,6 +588,21 @@ Access the dashboard at: `https://your-n8n-instance.com/webhook/verpakkingenxl-2
 2. Check webhook URL is correct
 3. Review data table connections
 4. Check browser console for JavaScript errors
+5. Verify SheetJS CDN is accessible (required for Excel import)
+
+### Excel Import Not Working
+
+**Symptoms:** Excel file fails to parse or shows no data
+
+**Solutions:**
+1. Verify file format is `.xlsx` or `.xls`
+2. Check that required columns exist: `Klant code` and `Klant`
+3. Ensure column names match exactly (case-sensitive)
+4. Verify SheetJS library loaded (check browser console)
+5. Check browser console for parsing errors
+6. Try with a smaller Excel file to test
+7. Ensure first sheet contains the data (only first sheet is processed)
+8. Verify rows have both Customer Code and Name (empty rows are skipped)
 
 ### Error Notifications Not Sent
 
