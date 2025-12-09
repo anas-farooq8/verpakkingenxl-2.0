@@ -1112,7 +1112,7 @@
                             <div class="sort-controls">
                                 <label>Sort by:</label>
                                 <select id="dashboardSortField">
-                                    <option value="createdAt">Created Date</option>
+                                    <option value="updatedAt">Updated Date</option>
                                     <option value="lead_score">Lead Score</option>
                                 </select>
                                 <button class="sort-btn" id="dashboardSortBtn">
@@ -1133,7 +1133,7 @@
                                         <th>Lead Score</th>
                                         <th>Source</th>
                                         <th>Status</th>
-                                        <th>Created</th>
+                                        <th>Updated</th>
                                         <th id="orgIdHeader" style="display: none;">Org ID</th>
                                         <th id="personIdHeader" style="display: none;">Person ID</th>
                                         <th id="dealIdHeader" style="display: none;">Deal ID</th>
@@ -1537,6 +1537,7 @@
         const KVS_WEBHOOK_URL = 'https://your-n8n-domain/webhook/update-kvs-2.0';
         const PUSH_WEBHOOK_URL = 'https://your-n8n-domain/webhook/push-to-pipedrive';
         const DEL_WEBHOOK_URL = 'https://your-n8n-domain/webhook/del-row';
+        const GET_TOTAL_COUNT_URL = 'https://your-n8n-domain/webhook/get-total-count';
 
         const KVS_FIELDS = [
             { id: 'system_prompt_base_agent', key: 'system_prompt_base_agent' },
@@ -2135,6 +2136,7 @@
         let dashboardCurrentPage = 1;
         let dashboardSortDirection = 'desc';
         const dashboardItemsPerPage = 20;
+        let totalRawEntries = 0;
 
         const dashboardTableBody = document.getElementById('dashboardTableBody');
         const dashboardResultsCount = document.getElementById('dashboardResultsCount');
@@ -2152,12 +2154,24 @@
         const dealIdHeader = document.getElementById('dealIdHeader');
         const pushHeader = document.getElementById('pushHeader');
 
-        function initializeDashboard() {
+        async function initializeDashboard() {
             const zendeskData = Array.isArray(window.zendeskDataFromN8n) ? window.zendeskDataFromN8n : [];
             // Filter out empty objects
             dashboardData = zendeskData.filter(item => item && item.id);
             dashboardCurrentPage = 1;
             dashboardSortDirection = 'desc';
+            
+            // Fetch total raw entries count
+            try {
+                const response = await fetch(GET_TOTAL_COUNT_URL);
+                if (response.ok) {
+                    const data = await response.json();
+                    totalRawEntries = data.total_count || 0;
+                }
+            } catch (e) {
+                console.error('Failed to fetch total count:', e);
+            }
+            
             applyDashboardFiltersAndSort();
             setupDashboardEventListeners();
         }
@@ -2214,13 +2228,13 @@
         }
 
         function sortDashboardData() {
-            const sortField = document.getElementById('dashboardSortField')?.value || 'createdAt';
+            const sortField = document.getElementById('dashboardSortField')?.value || 'updatedAt';
             
             dashboardFilteredData.sort((a, b) => {
                 let aVal = a[sortField];
                 let bVal = b[sortField];
 
-                if (sortField === 'createdAt') {
+                if (sortField === 'updatedAt') {
                     aVal = new Date(aVal);
                     bVal = new Date(bVal);
                 }
@@ -2363,7 +2377,7 @@
             const isProcessed = item.status === 'processed';
             const leadScore = `<span class="lead-score">${(item.lead_score || 0).toFixed(1)}</span>`;
             // Convert UTC to Europe/Berlin timezone
-            const createdAt = new Date(item.createdAt).toLocaleDateString('nl-NL', { timeZone: 'Europe/Berlin' });
+            const updatedAt = new Date(item.updatedAt).toLocaleDateString('nl-NL', { timeZone: 'Europe/Berlin' });
             const shippingVol = item.estimated_shipping_volume || 'N/A';
             const logistics = item.likely_logistics_type || 'N/A';
 
@@ -2401,7 +2415,7 @@
                 <td>${leadScore}</td>
                 <td>${item.source || 'zendesk'}</td>
                 <td>${statusCell}</td>
-                <td>${createdAt}</td>
+                <td>${updatedAt}</td>
                 ${pushCell}
             </tr>`;
         }
@@ -2412,7 +2426,7 @@
             const endIdx = Math.min(startIdx + dashboardItemsPerPage, dashboardFilteredData.length);
 
             dashboardPageInfo.textContent = `Page ${dashboardCurrentPage} of ${totalPages}`;
-            dashboardResultsCount.textContent = `Showing ${startIdx + 1}-${endIdx} of ${dashboardFilteredData.length} leads (${dashboardData.length} total)`;
+            dashboardResultsCount.textContent = `Showing ${startIdx + 1}-${endIdx} of ${dashboardFilteredData.length} leads (${totalRawEntries.toLocaleString()} total raw entries)`;
 
             const isFirstPage = dashboardCurrentPage === 1;
             const isLastPage = dashboardCurrentPage === totalPages;
@@ -2492,9 +2506,9 @@
                     </div>
                 </div>
                 <div class="modal-section">
-                    <h3>Created At</h3>
+                    <h3>Last Updated</h3>
                     <div class="modal-grid">
-                        <div class="modal-field"><label>Timestamp</label><div class="value">${new Date(item.createdAt).toLocaleString('nl-NL', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div></div>
+                        <div class="modal-field"><label>Timestamp</label><div class="value">${new Date(item.updatedAt).toLocaleString('nl-NL', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div></div>
                     </div>
                 </div>
             `;
