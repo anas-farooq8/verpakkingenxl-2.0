@@ -595,6 +595,29 @@
             background: #c0392b;
         }
 
+        .skip-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: background 0.3s;
+            margin-left: 5px;
+        }
+
+        .skip-btn:hover {
+            background: #d68910;
+        }
+
+        .skip-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
         /* Status & Badge Components */
         .status-badge {
             display: inline-block;
@@ -1114,7 +1137,7 @@
                                         <th id="orgIdHeader" style="display: none;">Org ID</th>
                                         <th id="personIdHeader" style="display: none;">Person ID</th>
                                         <th id="dealIdHeader" style="display: none;">Deal ID</th>
-                                        <th id="pushHeader" style="display: none;">Action</th>
+                                        <th id="pushHeader" style="display: none;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="dashboardTableBody">
@@ -1513,6 +1536,7 @@
         const SAVE_WEBHOOK_URL = 'https://your-n8n-domain/webhook/save-raw-data';
         const KVS_WEBHOOK_URL = 'https://your-n8n-domain/webhook/update-kvs-2.0';
         const PUSH_WEBHOOK_URL = 'https://your-n8n-domain/webhook/push-to-pipedrive';
+        const DEL_WEBHOOK_URL = 'https://your-n8n-domain/webhook/del-row';
 
         const KVS_FIELDS = [
             { id: 'system_prompt_base_agent', key: 'system_prompt_base_agent' },
@@ -1810,7 +1834,9 @@
                     <td>${formatValue(user.phone)}</td>
                     <td>${formatValue(user.address)}</td>
                     <td>${formatValue(user.locale)}</td>
-                    <td><button class="delete-btn" onclick="deleteUser('${String(user.id)}')">Delete</button></td>
+                    <td>
+                        <button class="delete-btn" onclick="deleteUser('${String(user.id)}')">Delete</button>
+                    </td>
                 </tr>`;
             });
 
@@ -2354,7 +2380,10 @@
             if (isProcessed) {
                 pushCell = '<td><span class="pushed-badge">Pushed</span></td>';
             } else {
-                pushCell = `<td><button class="push-btn" onclick="pushToPipedrive(${item.id}, event)">Push to Pipedrive</button></td>`;
+                pushCell = `<td>
+                    <button class="push-btn" onclick="pushToPipedrive(${item.id}, event)">Push to Pipedrive</button>
+                    <button class="skip-btn" onclick="skipDashboardUser('${item.zendesk_id || item.id}', event)">Skip</button>
+                </td>`;
             }
 
             // Make customer name a link to organization if processed
@@ -2542,6 +2571,55 @@
             } finally {
                 button.disabled = false;
                 button.textContent = originalText;
+            }
+        }
+
+        // Skip user function for dashboard - calls webhook and removes on success
+        async function skipDashboardUser(zendeskId, event) {
+            event.stopPropagation();
+            
+            const item = dashboardData.find(d => (d.zendesk_id || d.id) == zendeskId);
+            
+            if (!item) {
+                alert('User not found.');
+                return;
+            }
+
+            // Disable all skip buttons during request
+            const skipButtons = document.querySelectorAll('.skip-btn');
+            skipButtons.forEach(btn => btn.disabled = true);
+
+            try {
+                const response = await fetch(DEL_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: item.zendesk_id || item.id,
+                        name: item.customer_name,
+                        email: item.email
+                    })
+                });
+
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // Ignore JSON parse errors
+                }
+
+                if (response.ok && data && data.status === 'success') {
+                    // Remove item from dashboardData array on success
+                    dashboardData = dashboardData.filter(d => (d.zendesk_id || d.id) != zendeskId);
+                    
+                    // Re-apply filters and re-render
+                    applyDashboardFiltersAndSort();
+                } else {
+                    alert('Failed to skip user. Please try again.');
+                    skipButtons.forEach(btn => btn.disabled = false);
+                }
+            } catch (e) {
+                alert('Failed to skip user. Please try again.');
+                skipButtons.forEach(btn => btn.disabled = false);
             }
         }
 
